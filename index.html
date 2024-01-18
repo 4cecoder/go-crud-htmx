@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Makeshift Frontend</title>
+    <!-- Include Bootstrap CSS -->
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Include htmx -->
+    <script src="https://unpkg.com/htmx.org@1.6.1"></script>
+</head>
+<body class="bg-dark text-white">
+<div class="container py-5">
+    <h1 class="text-center mb-5">Welcome to the Frontend!</h1>
+    <!-- Search bar -->
+    <div class="input-group mb-3">
+        <input class="form-control" id="search" placeholder="Search users" type="text">
+        <div class="input-group-append">
+            <button class="btn btn-outline-secondary" id="searchButton" type="button">Search</button>
+        </div>
+    </div>
+    <!-- Button group for multi-select actions -->
+    <div aria-label="Multi-select actions" class="btn-group mb-3" role="group">
+        <button class="btn btn-danger" id="deleteSelected" type="button">Delete Selected</button>
+        <button class="btn btn-success" id="exportSelected" type="button">Export Selected</button>
+    </div>
+    <!-- htmx AJAX call to GET /users endpoint -->
+    <div class="card bg-secondary mb-4">
+        <div class="card-body">
+            <table class="table table-dark table-striped">
+                <thead>
+                <tr>
+                    <th>Select</th>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Action</th>
+                </tr>
+                </thead>
+                <tbody id="userList">
+                <tr id="loading">
+                    <td colspan="5">Loading users...</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <!-- Form to create a new user -->
+    <h2 class="text-center mb-5">Create a New User</h2>
+    <div class="card bg-secondary">
+        <div class="card-body">
+            <form id="userForm">
+                <div class="form-group">
+                    <label for="name">Name</label>
+                    <input class="form-control" id="name" name="name" type="text">
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input class="form-control" id="email" name="email" type="email">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input class="form-control" id="password" name="password" type="password">
+                </div>
+                <button class="btn btn-primary" type="submit">Create User</button>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+<script>
+    document.getElementById('userForm').addEventListener('submit', function (event) {
+        event.preventDefault();
+
+        var name = document.getElementById('name').value;
+        var email = document.getElementById('email').value;
+        var password = document.getElementById('password').value;
+
+        var data = {
+            name: name,
+            email: email,
+            password: password
+        };
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/users', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.send(JSON.stringify(data));
+    });
+
+    // Fetch users and populate the table
+    fetch('/users')
+        .then(response => response.json())
+        .then(users => {
+            var userList = document.getElementById('userList');
+            userList.innerHTML = '';
+            users.forEach(user => {
+                var row = document.createElement('tr');
+                row.innerHTML = '<td><input type="checkbox" class="user-checkbox" value="' + user.id + '"></td><td>' + user.id + '</td><td>' + user.name + '</td><td>' + user.email + '</td><td><button class="btn btn-danger delete-user" data-id="' + user.id + '">Delete</button></td>';
+                userList.appendChild(row);
+            });
+
+
+            // Remove the loading message
+            var loading = document.getElementById('loading');
+            if (loading) {
+                loading.parentNode.removeChild(loading);
+            }
+
+            // Add event listener for delete buttons
+            var deleteButtons = document.getElementsByClassName('delete-user');
+            for (var i = 0; i < deleteButtons.length; i++) {
+                deleteButtons[i].addEventListener('click', function (event) {
+                    var userId = event.target.getAttribute('data-id');
+                    fetch('/users/' + userId, {
+                        method: 'DELETE'
+                    }).then(function (response) {
+                        if (response.ok) {
+                            // Remove the user row from the table
+                            var userRow = event.target.parentNode.parentNode;
+                            userRow.parentNode.removeChild(userRow);
+                        }
+                    });
+                });
+            }
+        });
+
+    // Add event listener for search button
+    document.getElementById('searchButton').addEventListener('click', function () {
+        var searchTerm = document.getElementById('search').value.toLowerCase();
+        var userRows = document.getElementById('userList').getElementsByTagName('tr');
+        for (var i = 0; i < userRows.length; i++) {
+            var userName = userRows[i].getElementsByTagName('td')[2].textContent.toLowerCase();
+            if (userName.indexOf(searchTerm) > -1) {
+                userRows[i].style.display = "";
+            } else {
+                userRows[i].style.display = "none";
+            }
+        }
+    });
+
+    // Add event listener for delete selected button
+    document.getElementById('deleteSelected').addEventListener('click', function () {
+        var checkboxes = document.getElementsByClassName('user-checkbox');
+        for (var i = 0; i < checkboxes.length; i++) {
+            if (checkboxes[i].checked) {
+                var userId = checkboxes[i].value;
+                fetch('/users/' + userId, {
+                    method: 'DELETE'
+                }).then(function (response) {
+                    if (response.ok) {
+                        // Remove the user row from the table
+                        var userRow = checkboxes[i].parentNode.parentNode;
+                        userRow.parentNode.removeChild(userRow);
+                    }
+                });
+            }
+        }
+    });
+
+    // Add event listener for export selected button
+    document.getElementById('exportSelected').addEventListener('click', function () {
+        var checkboxes = document.getElementsByClassName('user-checkbox');
+        var selectedUsers = [];
+        for (var i = 0; i < checkboxes.length; i++) {
+            if (checkboxes[i].checked) {
+                var userId = checkboxes[i].value;
+                selectedUsers.push(userId);
+            }
+        }
+        // Here you can implement the logic to export the selected users
+        console.log('Exporting users: ' + selectedUsers.join(', '));
+    });
+</script>
+
+</html>
